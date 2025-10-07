@@ -1,10 +1,6 @@
-// background.js (fixed)
-// prevents infinite opening by tracking visited URLs and tabs being crawled
-
-const MAX_PAGES_TO_CRAWL = 5;   // change as needed
+ const MAX_PAGES_TO_CRAWL = 5;   // change as needed
 const TAB_LOAD_TIMEOUT = 20000; // ms
-
-// In-memory trackers (service worker lifetime lasts while extension is active)
+ 
 const visitedUrls = new Set();      // URLs we've already processed
 const tabsBeingCrawled = new Set(); // tabIds we opened ourselves to extract (ignore their content-script messages)
 

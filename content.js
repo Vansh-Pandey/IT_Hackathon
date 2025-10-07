@@ -1,5 +1,4 @@
-// content.js
-function extractVisibleText() {
+ function extractVisibleText() {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
   let text = "";
   while (walker.nextNode()) {
@@ -44,6 +43,6 @@ function getInternalLinks(limit = 10) {
 }
 
 const text = extractVisibleText();
-const links = getInternalLinks(5); // default: limit to 5 links (change as needed)
+const links = getInternalLinks(5); 
 
 chrome.runtime.sendMessage({ type: "PAGE_TEXT_AND_LINKS", data: { text, links }, from: location.href });
