@@ -1,21 +1,17 @@
 {
   "manifest_version": 3,
-  "name": "Website Reader & Summarizer",
-  "version": "1.0",
-  "description": "Reads any website, summarizes the content, and can read it aloud.",
-  "permissions": ["activeTab", "scripting", "storage","tabs"],
+  "name": "Chrome AI Customer Assist",
+  "version": "0.1.0",
+  "description": "Floating AI assistant: STT, translation, sentiment-aware replies and summarization (MVP)",
+  "permissions": ["storage","activeTab","scripting","tabs","contentSettings"],
   "host_permissions": ["<all_urls>"],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": "icon.png"
-  },
+  "action": { "default_popup": "popup.html" },
+  "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "matches":["<all_urls>"], 
+      "js": ["scripts/content.js"] 
     }
-  ]
+  ],
+  "icons": { "128": "icons/icon128.png" }
 }

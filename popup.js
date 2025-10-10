@@ -1,61 +1,34 @@
-const GEMINI_API_KEY = "AIzaSyAHEsDDeORQrdRpd4oahmGEInKmng2Bj6Q";  
+// popup.js
+const domainEl = document.getElementById("domain");
+const inputEl = document.getElementById("query");
+const buttonEl = document.getElementById("ask");
+const outputEl = document.getElementById("output");
 
-document.addEventListener("DOMContentLoaded", async () => {
-  const data = await chrome.storage.local.get("lastPageText");
-  const text = data.lastPageText || "No text captured yet.";
-  document.getElementById("output").value = text.slice(0, 4000);
+(async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  domainEl.textContent = new URL(tab.url).hostname;
 
-  // Summarize button
-  document.getElementById("summarizeBtn").addEventListener("click", async () => {
-    const summary = await summarizeWithGemini(text);
-    document.getElementById("output").value = summary;
-  });
+  buttonEl.onclick = async () => {
+    outputEl.textContent = "Scraping the current web...";
+    const scrapedRes = await chrome.tabs.sendMessage(tab.id, { type: "SCRAPE_PAGE" });
+    if (!scrapedRes?.ok) {
+      outputEl.textContent = "Failed to scrape page....";
+      return;
+    }
+    const scraped = scrapedRes.data;
+    outputEl.textContent = "Thinking...";
+    // outputEl.textContent = scraped;
 
-  // Read aloud button
-  document.getElementById("readBtn").addEventListener("click", () => {
-    const utterance = new SpeechSynthesisUtterance(
-      document.getElementById("output").value
-    );
-    utterance.rate = 1.05;
-    utterance.pitch = 1;
-    speechSynthesis.speak(utterance);
-  });
-});
+    try {
+      const res = await chrome.runtime.sendMessage({
+        type: "ASK_QUERY",
+        page: scraped,
+        query: inputEl.value,
+      });
+      outputEl.textContent = res.ok ? res.answer : `Error 1: ${res.error}`;
+    } catch (err) {
+      outputEl.textContent = `Error 2: ${err.message}`;
+    }
+  };
 
-async function summarizeWithGemini(text) {
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
-    alert("Please add your Gemini API key in popup.js");
-    return "⚠️ API key missing.";
-  }
-
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `Summarize the following webpage text in clear, concise language:\n\n${text}`,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
-
-    const data = await response.json();
-    const summary =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No summary generated.";
-    return summary;
-  } catch (error) {
-    console.error("Error with Gemini API:", error);
-    return "Error summarizing text.";
-  }
-}
+})();
