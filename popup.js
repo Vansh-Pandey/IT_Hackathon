@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         page: scrapedData,
         query
       });
-
+      
       if (res?.ok) {
         statusMessage.querySelector('.message-text').textContent = res.answer;
         log('✅ Answer received:', res.answer);
