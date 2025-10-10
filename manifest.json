@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Chrome AI Customer Assist",
+  "name": "Milo Mate",
   "version": "0.1.0",
-  "description": "Floating AI assistant: STT, translation, sentiment-aware replies and summarization (MVP)",
+  
+  "description": "Customer AI assistant: STT, translation, sentiment-aware replies and summarization",
   "permissions": ["storage","activeTab","scripting","tabs","contentSettings"],
   "host_permissions": ["<all_urls>"],
-  "action": { "default_popup": "popup.html" },
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
