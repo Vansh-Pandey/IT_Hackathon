@@ -1,4 +1,18 @@
 // popup.js (Milo Mate AI Assistant)
+
+const defaultLang = document.getElementById('default-lang');
+const translateInput = document.getElementById('translate-input');
+const translateOutput = document.getElementById('translate-output');
+const translateBtn = document.getElementById('translate-btn');
+const fromLang = document.getElementById('from-lang');
+const toLang = document.getElementById('to-lang');
+const swapBtn = document.getElementById('swap-languages');
+
+// ADD to initializeEventListeners():
+defaultLang.addEventListener('change', saveUserPreferences);
+translateBtn.addEventListener('click', handleTranslation);
+swapBtn.addEventListener('click', swapLanguages);
+
 document.addEventListener('DOMContentLoaded', () => {
   // --- 1. Tab switching logic ---
   const tabs = document.querySelectorAll('.tab');
@@ -79,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Ask query to background
       statusMessage.querySelector('.message-text').textContent = '🧠 Thinking...';
-
+      console.log("[Popup] : Sending query from popup.js to background.js = ",query);
       const res = await chrome.runtime.sendMessage({
         type: 'ASK_QUERY',
         page: scrapedData,
@@ -109,3 +123,65 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+
+
+
+// ADD new functions:
+function loadUserPreferences() {
+  chrome.storage.local.get(['userLanguage'], (result) => {
+    if (result.userLanguage) {
+      defaultLang.value = result.userLanguage;
+    }
+  });
+}
+
+function saveUserPreferences() {
+  const preferences = {
+    userLanguage: defaultLang.value
+  };
+  chrome.storage.local.set(preferences);
+}
+
+async function handleTranslation() {
+  const text = translateInput.value.trim();
+  if (!text) return;
+
+  const sourceLang = fromLang.value;
+  const targetLang = toLang.value;
+
+  translateOutput.textContent = 'Translating...';
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "TRANSLATE_TEXT",
+      text: text,
+      sourceLang: sourceLang,
+      targetLang: targetLang
+    });
+
+    if (response.ok) {
+      translateOutput.textContent = response.translatedText;
+    } else {
+      translateOutput.textContent = `Translation error: ${response.error}`;
+    }
+  } catch (error) {
+    translateOutput.textContent = `Error: ${error.message}`;
+  }
+}
+
+function swapLanguages() {
+  const fromValue = fromLang.value;
+  const toValue = toLang.value;
+  
+  fromLang.value = toValue;
+  toLang.value = fromValue;
+  
+  const inputText = translateInput.value;
+  const outputText = translateOutput.textContent;
+  
+  if (outputText && outputText !== 'Translation will appear here...' && outputText !== 'Translating...') {
+    translateInput.value = outputText;
+    translateOutput.textContent = inputText;
+  }
+}

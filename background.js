@@ -1,7 +1,9 @@
 // background.js
 
 let session = null;
+let translators = new Map();
 
+// ---------------------- SESSION ----------------------
 async function ensureSession() {
   console.log("[BG] ensureSession() called");
 
@@ -33,91 +35,11 @@ async function ensureSession() {
       });
     },
     initialPrompts: [
-        {
-          role: "system",
-          content: `
-              You are **Milo Mate**, a friendly and intelligent AI assistant that helps users explore and understand the content of the current webpage.
-
-              ---
-
-              ### 🧠 Your Purpose:
-              Milo Mate exists to **answer questions about the currently viewed web page**, using only the content and navigation information provided in the "Page" section of each user query.
-          
-              You cannot access the internet or scrape new pages directly — but you may suggest links (from the given page) that the user can click to gather more information.
-
-              ---
-
-              ### 💬 Your Style:
-              - Be concise, friendly, and factual.
-              - Use simple, natural, and clear language.
-              - Mention the name “Milo Mate” naturally once in your answer if it makes sense.
-              - Never invent or assume information that isn't in the provided page context.
-
-              ---
-
-              ### 🚫 If You Don’t Know:
-              If the answer cannot be found in the given page content, respond exactly with:
-
-              > " I am unable to answer your query."
-
-              ---
-
-              ### 🌐 If a Relevant Link Exists:
-              If the user’s question may be answered by navigating to another page (and that page link exists in the provided content), politely suggest:
-              > "You can check more details [here](link)."  
-
-              (Use Markdown links if possible.)
-
-              ---
-
-              ### 🧩 Example Queries:
-
-              #### Example 1:
-              **Page content:**
-              "Welcome to TechNova! Learn about our AI solutions, data analytics, and robotics division."
-
-              **User Query:**
-              "What does TechNova specialize in?"
-
-              **Answer:**
-              "TechNova specializes in AI solutions, data analytics, and robotics."
-
-              ---
-
-              #### Example 2:
-              **Page content:**
-              "Products: [Laptops](#), [Phones](#), [Accessories](#)."
-
-              **User Query:**
-              "Do you sell headphones?"
-
-              **Answer:**
-              "Headphones might be listed under Accessories. You can check more details [here](#)."
-
-              ---
-
-              #### Example 3:
-              **Page content:**
-              "About Us — Founded in 2012, GreenLeaf provides eco-friendly gardening tools."
-
-              **User Query:**
-              "When was GreenLeaf founded?"
-
-              **Answer:**
-              "GreenLeaf was founded in 2012."
-
-              ---
-
-              ### ⚙️ Behavior Summary:
-              - Use only the given “Page” data.
-              - Never guess or pull from outside knowledge.
-              - Suggest navigation only if a clear link exists.
-              - Return short, relevant, and factual responses.
-
-              You are Milo Mate — your role is to make exploring the site simple and conversational.
-          `
-        }
-      ],
+      {
+        role: "system",
+        content: `...Your system prompt here...`
+      }
+    ],
     temperature: 1.2,
     topK: 3,
   });
@@ -126,6 +48,81 @@ async function ensureSession() {
   return session;
 }
 
+// ---------------------- TRANSLATOR ----------------------
+async function ensureTranslator(sourceLang, targetLang, forceNew = false) {
+  const key = `${sourceLang}-${targetLang}`;
+  
+  if (!forceNew && translators.has(key)) {
+    console.log(`[BG] Reusing cached translator for ${key}`);
+    return translators.get(key);
+  }
+
+  console.log(`[BG] Creating new translator for ${sourceLang} -> ${targetLang}`);
+  if (typeof Translator === "undefined") {
+    throw new Error("[BG] Translator API not available");
+  }
+
+  const availability = await Translator.availability({
+    sourceLanguage: sourceLang,
+    targetLanguage: targetLang,
+  });
+  console.log(`[BG] Translator availability for ${key}:`, availability);
+
+  if (availability === "unavailable") {
+    throw new Error(`[BG] Translation from ${sourceLang} to ${targetLang} not available`);
+  }
+
+  const translator = await Translator.create({
+    sourceLanguage: sourceLang,
+    targetLanguage: targetLang,
+    monitor(m) {
+      m.addEventListener("downloadprogress", (e) => {
+        console.log(`[BG] Translator downloaded ${(e.loaded * 100).toFixed(1)}%`);
+      });
+    },
+  });
+
+  console.log("[BG] Translator created:", translator);
+  translators.set(key, translator);
+  return translator;
+}
+
+async function translateText(text, sourceLang, targetLang, forceNew = false) {
+  if (sourceLang === targetLang) return text;
+
+  console.log(`[BG] translateText() called`);
+  console.log(`[BG] Input text: "${text}"`);
+  console.log(`[BG] Source: ${sourceLang}, Target: ${targetLang}, Force new: ${forceNew}`);
+
+  try {
+    // For queries, force a new translator instance
+    const translator = await ensureTranslator(sourceLang, targetLang, forceNew);
+    console.log("[BG] Translator instance ready:", translator);
+
+    const translated = await translator.translate(text);
+    console.log(`[BG] Translated text: "${translated}"`);
+
+    if (!translated || translated === text) {
+      console.warn("[BG] Warning: Translation returned the same text as input. Possible misconfiguration.");
+    }
+
+    return translated;
+  } catch (err) {
+    console.error("[BG] Translation failed:", err);
+    throw err;
+  }
+}
+
+// ---------------------- UTILS ----------------------
+async function getUserLanguage() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['userLanguage'], (result) => {
+      resolve(result.userLanguage || 'en');
+    });
+  });
+}
+
+// ---------------------- MESSAGE HANDLER ----------------------
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "ASK_QUERY") {
     console.log("[BG] Received ASK_QUERY:", msg);
@@ -134,22 +131,54 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       try {
         const sess = await ensureSession();
         console.log("[BG] Session ready, sending prompt...");
+        const userLanguage = await getUserLanguage();
+
+        let queryToSend = msg.query;
+
+        // ------------------ QUERY TRANSLATION ------------------
+        if (userLanguage !== 'en') {
+          console.log("[BG] Translating user query to English...");
+          queryToSend = await translateText(msg.query, userLanguage, 'en', true); // force new translator
+          console.log("[BG] Translated query:", queryToSend);
+        }
 
         const result = await sess.prompt([
           {
             role: "user",
-            content: `Page:\n${msg.page}\n\nQuestion:\n${msg.query}`,
+            content: `Page:\n${msg.page}\n\nQuestion:\n${queryToSend}`, // use translated query
           },
         ]);
 
-        console.log("[BG] Prompt complete:", result);
-        sendResponse({ ok: true, answer: result });
+        console.log("[BG] Session response (English):", result);
+
+        let finalAnswer = result;
+
+        // ------------------ TRANSLATE ANSWER BACK ------------------
+        if (userLanguage !== 'en') {
+          console.log("[BG] Translating answer back to user language...");
+          finalAnswer = await translateText(result, 'en', userLanguage, true); // force new translator
+          console.log("[BG] Translated answer:", finalAnswer);
+        }
+
+        sendResponse({ ok: true, answer: finalAnswer });
       } catch (e) {
-        console.error("[BG] Prompt failed:", e);
+        console.error("[BG] ASK_QUERY failed:", e);
         sendResponse({ ok: false, error: e.message });
       }
     })();
 
-    return true; // keep channel open
+    return true;
+  }
+
+  if (msg.type === "TRANSLATE_TEXT") {
+    (async () => {
+      try {
+        const translated = await translateText(msg.text, msg.sourceLang, msg.targetLang, true);
+        sendResponse({ ok: true, translatedText: translated });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;
   }
 });
