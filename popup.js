@@ -51,29 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return messageElement;
   };
 
-  // Helper to safely send message to content script
-  const trySendToContent = async (tabId, msg) => {
-    try {
-      const res = await chrome.tabs.sendMessage(tabId, msg);
-      return res;
-    } catch (err) {
-      // This happens if content script not loaded
-      log('Content script not found, injecting manually...');
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          files: ['content.js']
-        });
-        log('✅ Injected content.js manually.');
-        const retryRes = await chrome.tabs.sendMessage(tabId, msg);
-        return retryRes;
-      } catch (injectErr) {
-        log('❌ Failed to inject or message content script:', injectErr);
-        throw injectErr;
-      }
-    }
-  };
-
   const handleSend = async () => {
     const query = chatInputField.value.trim();
     if (!query) return;
@@ -87,20 +64,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) throw new Error('No active tab found.');
 
-      // Try scraping (content script message)
-      const scrapedRes = await trySendToContent(tab.id, { type: 'SCRAPE_PAGE' });
+      // Send message to content script (assumes content.js is loaded via manifest)
+      const scrapedRes = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PAGE' });
 
       if (!scrapedRes?.ok) {
         statusMessage.querySelector('.message-text').textContent =
           '❌ Failed to scrape page. Please refresh or reload the tab.';
-        log('Scrape failed:', scrapedRes);
+        console.log('Scrape failed:', scrapedRes);
         return;
       }
 
       const scrapedData = scrapedRes.data;
-      log('✅ Got structured page data:', scrapedData);
+      console.log('✅ Got structured page data:', scrapedData);
 
-      // Ask query
+      // Ask query to background
       statusMessage.querySelector('.message-text').textContent = '🧠 Thinking...';
 
       const res = await chrome.runtime.sendMessage({
