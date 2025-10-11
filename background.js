@@ -196,7 +196,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       const byteArray = new Uint8Array(byteNumbers);
       const audioBlob = new Blob([byteArray], { type: mimeType });
-
+      
       const response = await fetch(`https://api.deepgram.com/v1/listen?language=${lang}`, {
         method: "POST",
         headers: {
@@ -223,6 +223,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 
 });
+
+
+
 
 
 

@@ -13,7 +13,9 @@ defaultLang.addEventListener('change', saveUserPreferences);
 translateBtn.addEventListener('click', handleTranslation);
 swapBtn.addEventListener('click', swapLanguages);
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async() => {
+    await initLanguageDetector();
+
   // --- 1. Tab switching logic ---
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tab-content');
@@ -103,13 +105,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       if (res?.ok) {
-        statusMessage.querySelector('.message-text').textContent = res.answer;
-        log('✅ Answer received:', res.answer);
-      } else {
-        statusMessage.querySelector('.message-text').textContent =
-          `❌ Error: ${res?.error || 'Unknown background error'}`;
-        log('❌ Error from background:', res);
-      }
+  const answer = res.answer;
+  statusMessage.querySelector(".message-text").textContent = answer;
+
+  // ✅ Save latest response
+  window.latestAIResponse = answer;
+
+  // ✅ Auto-play TTS (optional)
+  speakTextWithDeepgram(answer);
+} else {
+  statusMessage.querySelector(".message-text").textContent =
+    `❌ ${res?.error || "Unknown background error"}`;
+}
+
     } catch (err) {
       statusMessage.querySelector('.message-text').textContent =
         `⚠️ Uncaught Error: ${err.message}`;
@@ -189,6 +197,20 @@ function swapLanguages() {
 }
 
 
+// Shared function to handle AI responses from text or voice queries
+function handleAIResponse(messageEl, res) {
+  if (res?.ok) {
+    const answer = res.answer;
+    messageEl.querySelector(".message-text").textContent = answer;
+
+    // ✅ Store and optionally play via Deepgram
+    window.latestAIResponse = answer;
+    speakTextWithDeepgram(answer);
+  } else {
+    messageEl.querySelector(".message-text").textContent =
+      `❌ ${res?.error || "Unknown background error"}`;
+  }
+}
 
 
 // =====================
@@ -285,12 +307,9 @@ console.log("Supported types:", MediaRecorder.isTypeSupported('audio/webm;codecs
 
       console.log("[Popup][Voice] 🤖 LLM response:", res);
 
-      if (res?.ok) {
-        thinkingMsg.querySelector(".message-text").textContent = res.answer;
-      } else {
-        thinkingMsg.querySelector(".message-text").textContent =
-          `❌ ${res?.error || "Unknown background error"}`;
-      }
+      handleAIResponse(thinkingMsg, res);
+
+
     } catch (err) {
       console.error("[Popup][Voice] ❌ Error while sending query:", err);
       window.createMessageElement(`⚠️ Error: ${err.message}`, "assistant");
@@ -338,16 +357,131 @@ console.log("Supported types:", MediaRecorder.isTypeSupported('audio/webm;codecs
   });
 })();
 
+// Function: Convert AI text → speech using Deepgram TTS
+async function speakTextWithDeepgram(text) {
+  try {
+    if (!text || text.trim() === "") return;
+
+    const langCode = await detectLanguageAI(text); // use built-in detector
+    const speakableText = text;
+
+    console.log(`[TTS] 🧠 Language detected: ${langCode}`);
+    console.log(`[TTS] 🗣 Expanded text for TTS: ${speakableText}`);
+
+   const payload = {
+  text: speakableText
+};
+
+// Only add voice parameter if it's not English (or adjust as needed)
+if (langCode !== "en-US") {
+  payload.voice = langCode;
+}
+
+const response = await fetch("https://api.deepgram.com/v1/speak?model=aura-asteria-en", {
+  method: "POST",
+  headers: {
+    "Authorization": `Token ef2c8061467bd30d586456e55bfb751027e553fb`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(payload),
+});
+
+    if (!response.ok) {
+      console.error("[TTS] ❌ Deepgram error:", await response.text());
+      return;
+    }
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audioEl = document.getElementById("voice-audio");
+    audioEl.src = audioUrl;
+    audioEl.style.display = "block";
+    await audioEl.play();
+
+    console.log("[TTS] ✅ Played voice successfully!");
+  } catch (err) {
+    console.error("[TTS] ⚠️ Error:", err);
+  }
+}
 
 
 
 
+document.getElementById("voice-reply-btn").addEventListener("click", async () => {
+  if (!window.latestAIResponse) {
+    alert("No AI response to speak yet!");
+    return;
+  }
+  await speakTextWithDeepgram(window.latestAIResponse);
+});
 
 
 
+// =======================================
+// 🔍 Built-in AI Language Detection (Chrome 138+)
+// =======================================
 
+let languageDetector = null;
 
+async function initLanguageDetector() {
+  if (!('LanguageDetector' in self)) {
+    console.warn("[LangDetect] ❌ Language Detector API not supported in this browser.");
+    return null;
+  }
 
+  const availability = await LanguageDetector.availability();
+  console.log("[LangDetect] Model availability:", availability);
 
+  if (availability === 'downloadable') {
+    console.log("[LangDetect] ⏬ Downloading model...");
+  }
 
+  languageDetector = await LanguageDetector.create({
+    monitor(m) {
+      m.addEventListener('downloadprogress', (e) => {
+        console.log(`[LangDetect] Downloaded ${(e.loaded * 100).toFixed(1)}%`);
+      });
+    },
+  });
 
+  console.log("[LangDetect] ✅ Detector ready");
+  return languageDetector;
+}
+
+async function detectLanguageAI(text) {
+  if (!languageDetector) {
+    console.warn("[LangDetect] ⚠️ Detector not ready — initializing...");
+    await initLanguageDetector();
+  }
+
+  if (!text || text.trim().length < 3) {
+    console.warn("[LangDetect] ⚠️ Text too short for detection.");
+    return "en-US"; // fallback
+  }
+
+  try {
+    const results = await languageDetector.detect(text);
+    const top = results[0];
+    console.log("[LangDetect] 🔠 Detected:", top.detectedLanguage, "confidence:", top.confidence);
+
+    // Convert short language code → Deepgram-compatible locale
+    const langMap = {
+      en: "en-US",
+      hi: "hi-IN",
+      ta: "ta-IN",
+      te: "te-IN",
+      fr: "fr-FR",
+      de: "de-DE",
+      es: "es-ES",
+      zh: "zh-CN",
+      ja: "ja-JP",
+    };
+
+    const locale = langMap[top.detectedLanguage] || "en-US";
+    console.log("[LangDetect] 🌍 Mapped locale:", locale);
+    return locale;
+  } catch (err) {
+    console.error("[LangDetect] ❌ Detection failed:", err);
+    return "en-US";
+  }
+}
