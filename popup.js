@@ -64,6 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return messageElement;
   };
+    // <-- Add this line right after createMessageElement definition:
+  window.createMessageElement = createMessageElement;
 
   const handleSend = async () => {
     const query = chatInputField.value.trim();
@@ -185,3 +187,167 @@ function swapLanguages() {
     translateOutput.textContent = inputText;
   }
 }
+
+
+
+
+// =====================
+// Step 1 — Basic mic recording (no Deepgram yet)
+// =====================
+(function () {
+  const DEBUG = true;
+  const log = (...args) => DEBUG && console.log('[VoiceChat]', ...args);
+
+  const micBtn = document.getElementById('mic-btn');
+  if (!micBtn) {
+    log('❌ mic button not found');
+    return;
+  }
+
+  let recorder = null;
+  let chunks = [];
+
+  async function startRecording() {
+    try {
+      log('🎙 Requesting microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recorder = new MediaRecorder(stream,{
+  mimeType: 'audio/webm;codecs=opus' // ✅ explicitly request Opus codec
+});
+console.log("Supported types:", MediaRecorder.isTypeSupported('audio/webm;codecs=opus'));
+
+      chunks = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstart = () => {
+        log('🟢 Recording started');
+        micBtn.style.color = 'red';
+      };
+  recorder.onstop = async () => {
+  log('🔴 Recording stopped');
+  micBtn.style.color = '';
+
+  const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+  log("[Popup][Voice] 🎙️ Recorded blob:", blob);
+
+  // Convert Blob to Base64 safely
+  const arrayBuffer = await blob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  let binary = '';
+  const chunkSize = 0x8000; // prevents call stack overflow
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const subArray = uint8Array.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...subArray);
+  }
+  const base64Audio = btoa(binary);
+  log("[Popup][Voice] 📤 Sending base64 audio, length:", base64Audio.length);
+
+  chrome.runtime.sendMessage({
+    type: "TRANSCRIBE_AUDIO",
+    audioBase64: base64Audio,
+    mimeType: blob.type,
+    language: defaultLang.value || "en"
+  },  async (response) => {
+    console.log("[Popup][Voice] Deepgram transcription response:", response);
+      // 🧠 Show the transcript as user's message
+  window.createMessageElement(response.transcript, "user");
+
+  // 🔍 Status message while processing
+  const thinkingMsg = window.createMessageElement("🔍 Scraping current page...", "assistant");
+  
+
+  // =====added part===
+  try {
+      // --- 4️⃣ Get current tab ---
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) throw new Error("No active tab found.");
+
+      // --- 5️⃣ Ask content.js to scrape ---
+      const scrapedRes = await chrome.tabs.sendMessage(tab.id, { type: "SCRAPE_PAGE" });
+      console.log("[Popup][Voice] 📄 Scrape response:", scrapedRes);
+
+      if (!scrapedRes?.ok) {
+        thinkingMsg.querySelector(".message-text").textContent = "❌ Failed to scrape page.";
+        return;
+      }
+
+      // --- 6️⃣ Send transcript as query to LLM ---
+      const scrapedData = scrapedRes.data;
+      thinkingMsg.querySelector(".message-text").textContent = "🧠 Thinking...";
+
+      const res = await chrome.runtime.sendMessage({
+        type: "ASK_QUERY",
+        page: scrapedData,
+        query: response.transcript,
+      });
+
+      console.log("[Popup][Voice] 🤖 LLM response:", res);
+
+      if (res?.ok) {
+        thinkingMsg.querySelector(".message-text").textContent = res.answer;
+      } else {
+        thinkingMsg.querySelector(".message-text").textContent =
+          `❌ ${res?.error || "Unknown background error"}`;
+      }
+    } catch (err) {
+      console.error("[Popup][Voice] ❌ Error while sending query:", err);
+      window.createMessageElement(`⚠️ Error: ${err.message}`, "assistant");
+    }
+    // === added part end
+
+ 
+  
+  }  );
+
+  // --- Playback Preview ---
+  const audioURL = URL.createObjectURL(blob);
+  const audio = new Audio(audioURL);
+  audio.controls = true;
+  const chatContainer = document.getElementById('chat-container') || document.body;
+  const playerWrapper = document.createElement('div');
+  playerWrapper.className = 'voice-preview';
+  playerWrapper.style.margin = '8px 0';
+  playerWrapper.textContent = '▶️ Recorded audio preview: ';
+  playerWrapper.appendChild(audio);
+  chatContainer.appendChild(playerWrapper);
+};
+
+
+
+      recorder.start();
+    } catch (err) {
+      log('❌ Microphone error:', err);
+      alert('Microphone permission denied or unavailable.');
+    }
+  }
+
+  function stopRecording() {
+    if (recorder && recorder.state === 'recording') {
+      recorder.stop();
+    }
+  }
+
+  micBtn.addEventListener('click', () => {
+    if (!recorder || recorder.state === 'inactive') {
+      startRecording();
+    } else {
+      stopRecording();
+    }
+  });
+})();
+
+
+
+
+
+
+
+
+
+
+
+
+
+

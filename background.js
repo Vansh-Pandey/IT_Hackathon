@@ -181,4 +181,51 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })();
     return true;
   }
+  //deepgram
+  if (msg.type === "TRANSCRIBE_AUDIO") {
+  (async () => {
+    try {
+      const lang = msg.language || "en";
+      const mimeType = msg.mimeType || "audio/webm;codecs=opus";
+
+      // Reconstruct Blob from Base64
+      const byteChars = atob(msg.audioBase64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNumbers[i] = byteChars.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const audioBlob = new Blob([byteArray], { type: mimeType });
+
+      const response = await fetch(`https://api.deepgram.com/v1/listen?language=${lang}`, {
+        method: "POST",
+        headers: {
+          "Authorization": "Token ef2c8061467bd30d586456e55bfb751027e553fb",
+          "Content-Type": mimeType,
+        },
+        body: audioBlob
+      });
+
+      const result = await response.json();
+      console.log("[BG][Voice] ✅ Deepgram raw response:", result);
+
+      const transcript = result.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+      console.log("[BG][Voice] 📝 Transcript:", transcript);
+
+      sendResponse({ ok: true, transcript });
+    } catch (err) {
+      console.error("[BG][Voice] ❌ Transcription failed:", err);
+      sendResponse({ ok: false, error: err.message });
+    }
+  })();
+  return true;
+}
+
+
 });
+
+
+
+
+
+
