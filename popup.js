@@ -357,48 +357,59 @@ console.log("Supported types:", MediaRecorder.isTypeSupported('audio/webm;codecs
   });
 })();
 
-// Function: Convert AI text → speech using Deepgram TTS
+// Function: Convert AI text → speech using Deepgram TTS (English & Spanish only)
 async function speakTextWithDeepgram(text) {
   try {
     if (!text || text.trim() === "") return;
 
-    const langCode = await detectLanguageAI(text); // use built-in detector
-    const speakableText = text;
-
+    const langCode = await detectLanguageAI(text); // Detect language
     console.log(`[TTS] 🧠 Language detected: ${langCode}`);
-    console.log(`[TTS] 🗣 Expanded text for TTS: ${speakableText}`);
 
-   const payload = {
-  text: speakableText
-};
+    // ✅ Allowed languages: English and Spanish only
+    const allowedLangs = ["en-US", "es-ES"];
+    if (!allowedLangs.includes(langCode)) {
+      alert(`🔔 Text-to-Speech is currently supported only for English and Spanish. We are working to support your language soon!`);
+      return; // Exit without calling TTS
+    }
 
-// Only add voice parameter if it's not English (or adjust as needed)
-if (langCode !== "en-US") {
-  payload.voice = langCode;
-}
+    // Prepare TTS payload
+    const payload = { text };
+    let model_name = "aura-asteria-en"; // default English voice
 
-const response = await fetch("https://api.deepgram.com/v1/speak?model=aura-asteria-en", {
-  method: "POST",
-  headers: {
-    "Authorization": `Token ef2c8061467bd30d586456e55bfb751027e553fb`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(payload),
-});
+    if (langCode === "es-ES") {
+      model_name = "aura-2-sirio-es"; // Spanish voice
+    }
+
+    console.log(`[TTS] 🎯 Using model: ${model_name}`);
+    console.log(`[TTS] 🗣 Text for TTS: ${text}`);
+
+    const response = await fetch(`https://api.deepgram.com/v1/speak?model=${model_name}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Token ef2c8061467bd30d586456e55bfb751027e553fb`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
     if (!response.ok) {
-      console.error("[TTS] ❌ Deepgram error:", await response.text());
+      const errorText = await response.text();
+      console.error("[TTS] ❌ Deepgram error:", errorText);
       return;
     }
 
     const audioBlob = await response.blob();
     const audioUrl = URL.createObjectURL(audioBlob);
     const audioEl = document.getElementById("voice-audio");
-    audioEl.src = audioUrl;
-    audioEl.style.display = "block";
-    await audioEl.play();
-
-    console.log("[TTS] ✅ Played voice successfully!");
+    
+    if (audioEl) {
+      audioEl.src = audioUrl;
+      audioEl.style.display = "block";
+      await audioEl.play();
+      console.log("[TTS] ✅ Played voice successfully!");
+    } else {
+      console.error("[TTS] ❌ Audio element not found");
+    }
   } catch (err) {
     console.error("[TTS] ⚠️ Error:", err);
   }
