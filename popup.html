@@ -30,6 +30,7 @@
   <div class="nav-tabs">
     <button class="tab active" data-tab="chat">Chat</button>
     <button class="tab" data-tab="meetings">Task Summarization</button>
+    <button class="tab" data-tab="summarize">Privacy</button>
     <button class="tab" data-tab="settings">Settings</button>
   </div>
 
@@ -71,6 +72,13 @@
               </path>
             </svg>
           </button>
+          <!-- Add this button in the chat-input div, after the voice reply button -->
+<button class="icon-btn" id="image-upload-btn" title="Upload Image" style="color: black;">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+  </svg>
+</button>
+<input type="file" id="image-file-input" accept="image/*" style="display: none;">
 
           <button class="send-btn" id="send-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -176,6 +184,69 @@
     </div>
 
     <!-- Sentiment Tab -->
+     <div class="tab-content" id="summarize-content">
+  <div class="summarize-container">
+    <div class="summarize-header">
+      <h3>Text Summarization</h3>
+      <p>Summarize any text using Gemini Nano</p>
+    </div>
+
+    <div class="summarize-controls">
+      <div class="summarize-option">
+        <label>Summary Type:</label>
+        <select id="summary-type">
+          <option value="key-points">Key Points</option>
+          <option value="tldr">TL;DR</option>
+          <option value="teaser">Teaser</option>
+          <option value="headline">Headline</option>
+        </select>
+      </div>
+
+      <div class="summarize-option">
+        <label>Length:</label>
+        <select id="summary-length">
+          <option value="short">Short</option>
+          <option value="medium">Medium</option>
+          <option value="long">Long</option>
+        </select>
+      </div>
+
+      <div class="summarize-option">
+        <label>Format:</label>
+        <select id="summary-format">
+          <option value="markdown">Markdown</option>
+          <option value="plain-text">Plain Text</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="summarize-input-section">
+      <label>Additional Context (Optional):</label>
+      <input type="text" id="summary-context" placeholder="E.g., This is a technical article about AI..." style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px;">
+    </div>
+
+    <div class="summarize-input-section">
+      <label>Text to Summarize:</label>
+      <textarea id="summary-input" placeholder="Paste your text here..." rows="10" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+    </div>
+
+    <div class="summarize-actions">
+      <button class="summarize-btn primary" id="summarize-btn">📝 Generate Summary</button>
+      <button class="summarize-btn secondary" id="clear-summary-btn">🗑️ Clear</button>
+    </div>
+
+    <div class="summarize-output">
+      <label>Summary Result:</label>
+      <div id="summary-result" style="border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-top: 10px; min-height: 100px; background: #f9f9f9;">
+        Your summary will appear here...
+      </div>
+    </div>
+
+    <div class="summarize-status" id="summarize-status" style="margin-top: 10px; font-size: 12px; color: #666;">
+      Ready to summarize
+    </div>
+  </div>
+</div>
 
 
     <!-- Settings Tab -->

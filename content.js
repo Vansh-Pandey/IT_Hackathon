@@ -261,12 +261,15 @@ class ContentVoiceRecorder {
       this.chunks = [];
 
       this.recorder.ondataavailable = (e) => {
+        console.log("[CONTENT]Data available");
         if (e.data && e.data.size > 0) {
           this.chunks.push(e.data);
+          console.log("[Content]Pushing to chunk");
         }
       };
 
       this.recorder.onstop = async () => {
+        
         console.log('[Content][LiveVoice] 🔴 Recording stopped');
         
         const blob = new Blob(this.chunks, { type: 'audio/webm;codecs=opus' });
@@ -285,7 +288,7 @@ class ContentVoiceRecorder {
         this.cleanup();
       };
 
-      this.recorder.start();
+      this.recorder.start(2000);
       this.isRecording = true;
       console.log('[Content][LiveVoice] 🟢 Live Recording started');
       
