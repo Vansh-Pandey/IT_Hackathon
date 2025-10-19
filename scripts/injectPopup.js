@@ -46,6 +46,7 @@ document.body.appendChild(container);
 
 // Make the container draggable via the drag handle
 makeDraggable(container, dragHandle);
+
 function makeDraggable(element, handle) {
   let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
   let isDragging = false;
@@ -104,24 +105,22 @@ function makeDraggable(element, handle) {
 }
 
 // Close handler
-if (!window.miloMateCloseHandler) {
-  window.miloMateCloseHandler = function handlePopupMessage(event) {
-    if (event.data === "close-milo-popup") {
-      console.log('Closing Milo Mate now...');
+function handlePopupMessage(event) {
+  if (event.data === "close-milo-popup") {
+    console.log('Closing Milo Mate...');
 
-      // Remove the container if it exists
-      const container = document.getElementById("milo-mate-container");
-      if (container && container.parentNode) {
-        container.remove();
-      }
 
-      // Remove this specific event listener
-      window.removeEventListener("message", window.miloMateCloseHandler);
-
-      console.log('Milo Mate closed');
+    if (container && container.parentNode) {
+      container.remove();
     }
-  };
 
-  // Add the event listener
-  window.addEventListener("message", window.miloMateCloseHandler);
+    window.removeEventListener("message", handlePopupMessage);
+
+    container = null;
+    iframe = null;
+
+    console.log('Milo Mate closed');
+  }
 }
+
+window.addEventListener("message", handlePopupMessage);
