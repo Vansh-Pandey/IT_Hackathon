@@ -1,9 +1,16 @@
 // popup.js
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize language detector first
-  await initLanguageDetector();
+  
+  // Save user preferences(language)  
   loadUserPreferences();
+  //done saving
+
+  // Load Language and test
+  var res=await detectLanguageAI();
+  console.log("[POPUP] Language code",res);
+  //Done loading language
+
   initializeImageUpload();
   testBackgroundCommunication();
   addSummarizationStyles();
@@ -27,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   });
-  
+
   // --- 2. Chat logic ---
   const chatInputField = document.getElementById('chat-input-field');
   const sendButton = document.getElementById('send-btn');
@@ -255,6 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const closeBtn = document.getElementById("close-btn");
   if (closeBtn) {
     closeBtn.addEventListener("click", () => {
+      console.log("[POPUP] Clicked Closed button");
       window.parent.postMessage("close-milo-popup", "*");
     });
   }
@@ -780,7 +788,7 @@ async function speakTextWithDeepgram(text) {
   try {
     if (!text || text.trim() === "") return;
 
-    const langCode = await detectLanguageAI(text);
+    const langCode = await detectLanguageAI();
     console.log(`[TTS] 🧠 Language detected: ${langCode}`);
 
     // Allowed languages: English and Spanish only
@@ -833,140 +841,6 @@ async function speakTextWithDeepgram(text) {
   }
 }
 
-// Language Detection
-let languageDetector = null;
-
-async function initLanguageDetector() {
-  // More robust API detection
-  if (!self.LanguageDetector || typeof LanguageDetector.create !== 'function') {
-    console.warn("[LangDetect] ❌ Language Detector API not supported in this browser.");
-    return createFallbackDetector();
-  }
-
-  try {
-    // Check if the API is actually usable (not blocked by policies)
-    const availability = await LanguageDetector.availability();
-    console.log("[LangDetect] Model availability:", availability);
-
-    if (availability === 'downloadable') {
-      console.log("[LangDetect] ⏬ Downloading model...");
-    }
-
-    const languageDetector = await LanguageDetector.create({
-      monitor(m) {
-        m.addEventListener('downloadprogress', (e) => {
-          console.log(`[LangDetect] Downloaded ${(e.loaded * 100).toFixed(1)}%`);
-        });
-      },
-    });
-
-    console.log("[LangDetect] ✅ Detector ready");
-    return languageDetector;
-  } catch (error) {
-    console.error("[LangDetect] Failed to initialize detector:", error);
-    return createFallbackDetector();
-  }
-}
-
-function createFallbackDetector() {
-  console.log("[LangDetect] Using fallback language detector");
-
-  return {
-    async detect(text) {
-      // Simple language detection based on character patterns
-      if (!text || text.trim().length === 0) {
-        return [{ language: 'en', confidence: 1.0 }];
-      }
-
-      const cleanText = text.trim().toLowerCase();
-
-      // Common language patterns
-      const patterns = {
-        'en': /^[a-z\s.,!?;:'"-]+$/, // Basic Latin
-        'es': /[áéíóúñ]/,
-        'fr': /[àâæçéèêëîïôœùûüÿ]/,
-        'de': /[äöüß]/,
-        'it': /[àèéìíîòóùú]/,
-        'pt': /[áâãàçéêíóôõú]/,
-        'ru': /[а-яё]/,
-        'zh': /[\u4e00-\u9fff]/, // Chinese characters
-        'ja': /[\u3040-\u309f\u30a0-\u30ff]/, // Hiragana/Katakana
-        'ko': /[\uac00-\ud7af]/, // Hangul
-        'ar': /[\u0600-\u06ff]/, // Arabic
-      };
-
-      const scores = [];
-
-      for (const [lang, pattern] of Object.entries(patterns)) {
-        const matches = (cleanText.match(pattern) || []).length;
-        const confidence = matches / Math.max(cleanText.length, 1);
-
-        if (confidence > 0.1) { // Only consider if we have some confidence
-          scores.push({
-            language: lang,
-            confidence: Math.min(confidence, 0.95)
-          });
-        }
-      }
-
-      // Sort by confidence and return top results
-      scores.sort((a, b) => b.confidence - a.confidence);
-
-      // If no clear match, default to English
-      if (scores.length === 0 || scores[0].confidence < 0.3) {
-        return [{ language: 'en', confidence: 0.5 }];
-      }
-
-      return scores.slice(0, 3); // Return top 3 guesses
-    },
-
-    // Add other methods that might be expected
-    async getLanguages() {
-      return ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko', 'ar'];
-    },
-
-    dispose() {
-      // Cleanup if needed
-    }
-  };
-}
-
-async function detectLanguageAI(text) {
-  if (!languageDetector) {
-    console.warn("[LangDetect] ⚠️ Detector not ready — initializing...");
-    await initLanguageDetector();
-  }
-
-  if (!text || text.trim().length < 3) {
-    console.warn("[LangDetect] ⚠️ Text too short for detection.");
-    return "en-US";
-  }
-
-  try {
-    const results = await languageDetector.detect(text);
-    const top = results[0];
-    console.log("[LangDetect] 🔠 Detected:", top.detectedLanguage, "confidence:", top.confidence);
-
-    const langMap = {
-      en: "en-US",
-      hi: "hi-IN",
-      ta: "ta-IN",
-      te: "te-IN",
-      fr: "fr-FR",
-      de: "de-DE",
-      es: "es-ES",
-      zh: "zh-CN",
-      ja: "ja-JP",
-    };
-
-    const locale = langMap[top.detectedLanguage] || "en-US";
-    console.log("[LangDetect] 🌍 Mapped locale:", locale);
-    return locale;
-  } catch (err) {
-    console.error("[LangDetect] ❌ Detection failed:", err);
-    return "en-US";
-  }
-}
 
 // Draggable popup functionality
 function dragElement(elmnt) {
@@ -2043,3 +1917,37 @@ function logSummarizationStep(step, data = null) {
     window.summarizeLogs.shift();
   }
 }
+
+// =====================
+// UTILITY FUNCTIONS
+// =====================
+
+// language 2 letter to 4 letter code for deepgram
+async function detectLanguageAI() {
+  
+    
+    const langMap = {
+      en: "en-US",
+      hi: "hi-IN",
+      ta: "ta-IN",
+      te: "te-IN",
+      fr: "fr-FR",
+      de: "de-DE",
+      es: "es-ES",
+      zh: "zh-CN",
+      ja: "ja-JP",
+    };
+    let ans=null;
+   chrome.storage.local.get(['userLanguage'], (result) => {
+    if (result.userLanguage) {
+      console.log("[POPUP]Language code from 2 letter code",langMap[result.userLanguage]);
+      ans=result.userLanguage;
+    }
+  });
+  if(ans===null) ans="en";
+  return langMap[ans];
+}
+
+// =====================
+// UTILITY FUNCTIONS END
+// =====================

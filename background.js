@@ -1029,7 +1029,9 @@ chrome.runtime.onSuspend.addListener(() => {
   translators.clear();
 });
 
-// Periodic session refresh to prevent memory issues
+// =====================
+// Periodic session refresh to avoid memory issues
+// =====================
 setInterval(() => {
   if (session) {
     console.log("[BG] Refreshing session...");
@@ -1041,15 +1043,24 @@ setInterval(() => {
   }
 }, 30 * 60 * 1000); // Refresh every 30 minutes
 
-// ---------------------- POPUP INJECTION ----------------------
+// =====================
+// Done periodic session
+// =====================
+
+// =====================
+// Click on icon to inject popup
+// =====================
 chrome.action.onClicked.addListener(async (tab) => {
   try {
-    console.log("[BG] Injecting Milo Mate popup into page...");
+    console.log("[BG][] 💉Injecting Milo Mate popup into page...");
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["injectPopup.js"],
+      files: ["./scripts/injectPopup.js"],
     });
   } catch (err) {
     console.error("[BG] Failed to inject popup:", err);
   }
 });
+// =====================
+// Injection logic complete
+// =====================
