@@ -1,4 +1,4 @@
-// popup.js (Milo Mate AI Assistant - Complete Version)
+// popup.js
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Initialize language detector first
@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   });
-
+  
   // --- 2. Chat logic ---
   const chatInputField = document.getElementById('chat-input-field');
   const sendButton = document.getElementById('send-btn');
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // UTILITY FUNCTIONS
 // =====================
 
-// User preferences
+// User preferences function
 function loadUserPreferences() {
   chrome.storage.local.get(['userLanguage'], (result) => {
     if (result.userLanguage) {
@@ -286,10 +286,7 @@ function saveUserPreferences() {
   chrome.storage.local.set(preferences);
 }
 
-// Translation functions
-
-
-
+// Markdown removal function
 function removeMarkdown(text) {
   if (!text || typeof text !== 'string') return text;
 

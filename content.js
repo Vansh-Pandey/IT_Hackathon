@@ -1,3 +1,4 @@
+// 1. Scrapping function for current page on current tab
 function quickScrape() {
   try {
     // Clean text helper
@@ -120,7 +121,7 @@ function quickScrape() {
       }
     };
 
-    console.log("[Enhanced Scraper ✅] Collected structured page data:", {
+    console.log("[CONTENT][Enhanced Scraper ✅ from quickScrape] Collected structured page data:", {
       title: data.title,
       paragraphs: data.paras,
       headings: data.headings,
@@ -160,7 +161,8 @@ function quickScrape() {
     }
   }
 }
-// Content script for microphone access
+
+// 2. Content script for microphone access
 class ContentVoiceRecorder {
   constructor() {
     this.recorder = null;
@@ -416,11 +418,12 @@ class ContentVoiceRecorder {
 // Initialize content voice recorder
 const contentVoiceRecorder = new ContentVoiceRecorder();
 
-// Listener to receive messages from popup.js and background.js
+// Listener to receive messages
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   console.log('[Content] Received message:', msg.type);
 
   switch (msg.type) {
+    // scraping current page listner
     case "SCRAPE_PAGE":
       try {
         const data = quickScrape();
@@ -430,7 +433,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: false, error: err.message });
       }
       return true; // Keep message channel open for async response
-
     case "START_RECORDING":
       contentVoiceRecorder.startRecording().then(sendResponse);
       return true; // Keep message channel open for async response
@@ -442,7 +444,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       contentVoiceRecorder.stopRecording();
       sendResponse({ success: true });
       return false; // No async response needed
-
     default:
       console.warn('[Content] Unknown message type:', msg.type);
       return false;

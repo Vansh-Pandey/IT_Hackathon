@@ -496,3 +496,26 @@ Milo Mate represents a *paradigm shift in customer service AI*:
 - 🌍 Global businesses with multilingual customers  
 
 > 🚀 Try Milo Mate today and transform your customer service operations!
+
+
+
+
+
+
+
+
+## Key learnings
+- About the manifest.json
+| Section                          | Purpose                                        |
+| -------------------------------- | ---------------------------------------------- |
+| `manifest_version`               | Defines extension API version (MV3 is current) |
+| `name`, `version`, `description` | Basic metadata                                 |
+| `permissions`                    | Core privileges (tabs, scripting, etc.)        |
+| `host_permissions`               | Which sites your extension can access          |
+| `optional_permissions`           | Requested later (e.g., mic)                    |
+| `action`                         | Toolbar icon and popup behavior                |
+| `background`                     | Main logic running behind the scenes           |
+| `content_scripts`                | Runs inside webpages                           |
+| `web_accessible_resources`       | Files accessible by web pages                  |
+| `icons`                          | Images for branding and UI                     |
+
